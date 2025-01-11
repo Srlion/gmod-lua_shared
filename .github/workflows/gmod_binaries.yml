@@ -1,0 +1,114 @@
+name: Get Lua Shared binaries
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "0 0 15 * *" # Runs at midnight UTC on the 15th of every month
+
+jobs:
+  now:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        os: [windows-2022, ubuntu-20.04]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install SteamCMD
+        uses: buildalon/setup-steAMCMD@v1
+
+      - name: Windows Create Directories
+        if: runner.os == 'Windows'
+        run: |
+          mkdir gmod
+          mkdir C:\bin
+          mkdir C:\bin\main
+          mkdir C:\bin\x86
+          mkdir C:\bin\x64
+
+      - name: Linux Create Directories
+        if: runner.os == 'Linux'
+        run: |
+          mkdir ~/gmod
+          mkdir ~/bin
+          mkdir ~/bin/main
+          mkdir ~/bin/x86
+          mkdir ~/bin/x64
+
+      - name: Run on Windows
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          REM steamcmd +force_install_dir "C:\gmod" +login anonymous +app_update 4020 -beta x86-64 validate +quit
+          steamcmd +force_install_dir "C:\gmod" +login anonymous +app_update 4020 -beta public validate +quit
+
+          copy C:\gmod\bin\vstdlib.dll C:\bin\main\vstdlib.dll
+          copy C:\gmod\bin\tier0.dll C:\bin\main\tier0.dll
+          copy C:\gmod\garrysmod\bin\lua_shared.dll C:\bin\main\lua_shared.dll
+          tar -czf C:\bin\win-main.tar.gz C:\bin\main
+
+          steamcmd +force_install_dir "C:\gmod" +login anonymous +app_update 4020 -beta x86-64 validate +quit
+
+          copy C:\gmod\bin\vstdlib.dll C:\bin\x86
+          copy C:\gmod\bin\tier0.dll C:\bin\x86
+          copy C:\gmod\bin\lua_shared.dll C:\bin\x86
+          tar -czf C:\bin\win-x86.tar.gz C:\bin\x86
+
+          copy C:\gmod\bin\win64\vstdlib.dll C:\bin\x64
+          copy C:\gmod\bin\win64\tier0.dll C:\bin\x64
+          copy C:\gmod\bin\win64\lua_shared.dll C:\bin\x64
+          tar -czf C:\bin\win-x64.tar.gz C:\bin\x64
+
+      - name: Run on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          steamcmd +force_install_dir ~/gmod +login anonymous +app_update 4020 -beta public validate +quit
+
+          cp ~/gmod/bin/libvstdlib_srv.so ~/bin/main/libvstdlib_srv.so
+          cp ~/gmod/bin/libtier0_srv.so ~/bin/main/libtier0_srv.so
+          cp ~/gmod/garrysmod/bin/lua_shared_srv.so ~/bin/main/lua_shared_srv.so
+          cp ~/gmod/bin/libsteam_api.so ~/bin/main/libsteam_api.so
+          tar -czf ~/bin/linux-main.tar.gz -C ~/bin main
+
+          steamcmd +force_install_dir ~/gmod +login anonymous +app_update 4020 -beta x86-64 validate +quit
+
+          cp ~/gmod/bin/linux32/libvstdlib.so ~/bin/x86
+          cp ~/gmod/bin/linux32/libtier0.so ~/bin/x86
+          cp ~/gmod/bin/linux32/lua_shared.so ~/bin/x86
+          cp ~/gmod/bin/linux32/libsteam_api.so ~/bin/x86
+          tar -czf ~/bin/linux-x86.tar.gz -C ~/bin x86
+
+          cp ~/gmod/bin/linux64/libvstdlib.so ~/bin/x64
+          cp ~/gmod/bin/linux64/libtier0.so ~/bin/x64
+          cp ~/gmod/bin/linux64/lua_shared.so ~/bin/x64
+          cp ~/gmod/bin/linux64/libsteam_api.so ~/bin/x64
+          tar -czf ~/bin/linux-x64.tar.gz -C ~/bin x64
+
+      - name: Windows Release
+        if: runner.os == 'Windows'
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          tag: Windows
+          artifacts: |
+            C:\bin\win-main.tar.gz
+            C:\bin\win-x86.tar.gz
+            C:\bin\win-x64.tar.gz
+
+      - name: Linux Release
+        if: runner.os == 'Linux'
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          tag: Linux
+          artifacts: |
+            ~/bin/linux-main.tar.gz
+            ~/bin/linux-x86.tar.gz
+            ~/bin/linux-x64.tar.gz
